@@ -17,7 +17,7 @@ class MainForm : Form
     static readonly Color Navy = Color.FromArgb(21, 42, 74), Blue = Color.FromArgb(37, 99, 235), Canvas = Color.FromArgb(244, 247, 251), Ink = Color.FromArgb(30, 41, 59), Muted = Color.FromArgb(100, 116, 139);
     readonly List<Word> words; readonly HashSet<string> learned; readonly string progressPath;
     int wi, qi, testIndex; string mode = "en";
-    readonly TabControl tabs = new() { Dock = DockStyle.Fill, DrawMode = TabDrawMode.OwnerDrawFixed, SizeMode = TabSizeMode.Fixed, ItemSize = new Size(150, 42), Padding = new Point(16, 8) }; readonly Label feedback = new(); readonly Button quizNext = new() { Text = "下一題", AutoSize = true };
+    readonly TabControl tabs = new() { Dock = DockStyle.Fill, DrawMode = TabDrawMode.OwnerDrawFixed, SizeMode = TabSizeMode.Fixed, ItemSize = new Size(150, 42), Padding = new Point(16, 8) }; readonly Label feedback = new(), quizTranslation = new(); readonly Button quizNext = new() { Text = "下一題", AutoSize = true };
     readonly FlowLayoutPanel choices = new() { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false };
     readonly FlowLayoutPanel wordHeader = new() { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, MaximumSize = new Size(800, 0) }, wordControls = new() { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, MaximumSize = new Size(800, 0) };
     readonly Label wordLabel = new(), translationLabel = new(), exampleLabel = new(), progressLabel = new(), statsLabel = new(), volumeLabel = new(), startHint = new() { Text = "從第", AutoSize = true };
@@ -75,7 +75,7 @@ class MainForm : Form
 
     TabPage QuizPage()
     {
-        var p = Page("題目練習"); StyleButton(quizNext, true); feedback.Font = new Font("Microsoft JhengHei", 11, FontStyle.Bold); feedback.MaximumSize = new Size(760, 0); feedback.ForeColor = Blue; quizNext.Click += (_, _) => { qi++; RenderQuiz(); };
+        var p = Page("題目練習"); StyleButton(quizNext, true); feedback.Font = new Font("Microsoft JhengHei", 11, FontStyle.Bold); feedback.MaximumSize = new Size(760, 0); feedback.ForeColor = Blue; quizTranslation.Font = new Font("Microsoft JhengHei", 11); quizTranslation.MaximumSize = new Size(760, 0); quizTranslation.ForeColor = Muted; quizNext.Click += (_, _) => { qi++; RenderQuiz(); };
         p.Controls.AddRange([choices, feedback, quizNext]); choices.Location = new Point(28, 50); return p;
     }
     void LayoutQuiz()
@@ -84,11 +84,11 @@ class MainForm : Form
     }
     void RenderQuiz()
     {
-        choices.Controls.Clear(); feedback.Text = ""; if (words.Count == 0) return;
+        choices.Controls.Clear(); feedback.Text = ""; quizTranslation.Text = ""; if (words.Count == 0) return;
         var targetIndex = qi % words.Count; var target = words[targetIndex]; var unfamiliar = !learned.Contains(target.en); var pattern = $@"\b{Regex.Escape(target.en)}\b"; var hasBlank = Regex.IsMatch(target.example, pattern, RegexOptions.IgnoreCase); var prompt = hasBlank ? Regex.Replace(target.example, pattern, "_____", RegexOptions.IgnoreCase) : $"{target.example}\n\nWhich word best matches 「{target.zh}」?";
-        choices.Controls.Add(new Label { Text = $"TOEIC 風格單字題　{targetIndex + 1:N0} / {words.Count:N0}\n{(unfamiliar ? "⚠ 這題的單字尚未學過" : "✓ 已學過的單字")}\n\n{prompt}", AutoSize = true, MaximumSize = new Size(760, 0), Font = new Font("Microsoft JhengHei", 15, FontStyle.Bold), ForeColor = Ink, Padding = new Padding(0, 8, 0, 22) });
+        choices.Controls.Add(new Label { Text = $"TOEIC 風格單字題　{targetIndex + 1:N0} / {words.Count:N0}\n{(unfamiliar ? "⚠ 這題的單字尚未學過" : "✓ 已學過的單字")}\n\n{prompt}", AutoSize = true, MaximumSize = new Size(760, 0), Font = new Font("Microsoft JhengHei", 15, FontStyle.Bold), ForeColor = Ink, Padding = new Padding(0, 8, 0, 22) }); choices.Controls.Add(quizTranslation);
         var options = new List<int> { targetIndex }; var random = new Random(targetIndex); while (options.Count < 4) { var candidate = random.Next(words.Count); if (!options.Contains(candidate)) options.Add(candidate); }
-        var translation = string.IsNullOrWhiteSpace(target.exampleZh) ? target.zh : target.exampleZh; var shuffled = options.OrderBy(_ => random.Next()).ToList(); for (var optionNumber = 0; optionNumber < shuffled.Count; optionNumber++) { var option = shuffled[optionNumber]; var button = new Button { Text = $"{(char)('A' + optionNumber)}. {words[option].en}", AutoSize = true, Tag = option, MinimumSize = new Size(360, 42), TextAlign = ContentAlignment.MiddleLeft }; StyleButton(button); button.Click += (_, _) => { var correct = (int)button.Tag! == targetIndex; button.BackColor = correct ? Color.FromArgb(220, 252, 231) : Color.FromArgb(254, 226, 226); button.ForeColor = correct ? Color.FromArgb(22, 101, 52) : Color.FromArgb(153, 27, 27); feedback.Text = (correct ? $"答對了！「{target.en}」：{target.zh}" : $"答案：{target.en}　{target.zh}") + $"\n中文翻譯：{translation}"; LayoutQuiz(); }; choices.Controls.Add(button); } LayoutQuiz();
+        var translation = string.IsNullOrWhiteSpace(target.exampleZh) ? target.zh : target.exampleZh; var shuffled = options.OrderBy(_ => random.Next()).ToList(); for (var optionNumber = 0; optionNumber < shuffled.Count; optionNumber++) { var option = shuffled[optionNumber]; var button = new Button { Text = $"{(char)('A' + optionNumber)}. {words[option].en}", AutoSize = true, Tag = option, MinimumSize = new Size(360, 42), TextAlign = ContentAlignment.MiddleLeft }; StyleButton(button); button.Click += (_, _) => { var correct = (int)button.Tag! == targetIndex; button.BackColor = correct ? Color.FromArgb(220, 252, 231) : Color.FromArgb(254, 226, 226); button.ForeColor = correct ? Color.FromArgb(22, 101, 52) : Color.FromArgb(153, 27, 27); quizTranslation.Text = $"中文翻譯：{translation}"; feedback.Text = correct ? $"答對了！「{target.en}」：{target.zh}" : $"答案：{target.en}　{target.zh}"; choices.PerformLayout(); LayoutQuiz(); }; choices.Controls.Add(button); } LayoutQuiz();
     }
 
     TabPage WordsPage()
